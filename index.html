@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Copilot Credits Price Optimizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; margin:0; }
+    header { text-align:center; padding:20px; }
+    main { display:grid; grid-template-columns:350px 1fr; gap:20px; max-width:1200px; margin:auto; padding:20px; }
+    .card { background:#111827; padding:16px; border-radius:8px; }
+    input, button { padding:8px; margin:4px 0; border-radius:4px; border:1px solid #374151; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { border-bottom:1px solid #374151; padding:8px; text-align:right; }
+    th:first-child, td:first-child { text-align:left; }
+    .best { background:#10b981; color:#fff; padding:2px 6px; border-radius:6px; font-size:12px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Copilot Credits Price Optimizer</h1>
+  <p>Compare PAYG, Capacity Packs, Commit Units, and hybrid strategies.</p>
+</header>
+<main>
+    <section class="card">
+        <h2>Inputs</h2>
+        <label>Monthly usage (credits)</label>
+        <input type="number" id="monthly" value="100000" min="1" step="1" />
+        <br/>
+        <label>Months</label>
+        <input type="number" id="months" value="12" min="1" max="12" />
+        <br />
+        <button onclick="computeAndRender()">Optimize</button>
+    </section>
+  <section class="card">
+    <h2>Results</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th><th>Credits</th><th>Cost</th><th>$/credit</th><th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const tiers = [
+  { tier:1, credits:300000, price:0.0095 },
+  { tier:2, credits:1500000, price:0.0094 },
+  { tier:3, credits:3000000, price:0.0093 },
+  { tier:4, credits:15000000, price:0.0092 },
+  { tier:5, credits:30000000, price:0.0090 },
+  { tier:6, credits:75000000, price:0.0082 },
+  { tier:7, credits:150000000, price:0.0086 },
+  { tier:8, credits:225000000, price:0.0083 },
+  { tier:9, credits:300000000, price:0.0080 }
+];
+
+function paygAnnualCost(annualCredits, paygPrice=0.01) {
+  return { annualCredits, annualCost: annualCredits*paygPrice };
+}
+
+function capacityPackAnnualCost(monthly, months, packPrice=0.008, blockSize=25000) {
+  let totalBlocks=0;
+  for(let i=0;i<months;i++) totalBlocks+=Math.ceil(monthly/blockSize);
+  const annualCredits=totalBlocks*blockSize;
+  const annualCost=annualCredits*packPrice;
+  return { annualCredits, annualCost };
+}
+
+// Hybrid: full packs only, leftover with PAYG
+function capacityPackHybridCost(monthly, months, packPrice=0.008, blockSize=25000, paygPrice=0.01) {
+  let totalCredits=0, totalCost=0;
+  for(let i=0;i<months;i++){
+    const blocks=Math.floor(monthly/blockSize);
+    const covered=blocks*blockSize;
+    const leftover=monthly-covered;
+    totalCredits+=monthly;
+    totalCost+=covered*packPrice + leftover*paygPrice;
+  }
+  return { annualCredits:totalCredits, annualCost:totalCost };
+}
+
+// Commit hybrid optimization (simplified: choose smallest tier >= demand)
+function commitHybridCost(demand, paygPrice=0.01) {
+  let tier=tiers.find(t=>t.credits>=demand);
+  if(!tier) tier=tiers[tiers.length-1];
+  const covered=tier.credits;
+  const commitCost=covered*tier.price;
+  const leftover=Math.max(0,demand-covered);
+  const totalCost=commitCost+leftover*paygPrice;
+  return { annualCredits:demand, annualCost:totalCost };
+}
+
+function computeAndRender(){
+  const monthly=Number(document.getElementById("monthly").value);
+  const months=Number(document.getElementById("months").value);
+  const annualUsage=monthly*months;
+
+  const payg=paygAnnualCost(annualUsage);
+  const pack=capacityPackAnnualCost(monthly,months);
+  const commit=commitHybridCost(annualUsage);
+  const packHybrid=capacityPackHybridCost(monthly,months);
+  const commitHybrid=commitHybridCost(annualUsage);
+
+  const rows=[
+    {label:"Pay-as-you-go",...payg,notes:"No commitments"},
+    {label:"Capacity Pack",...pack,notes:"Full packs, unused expire"},
+    {label:"Commit Units",...commit,notes:"Single tier chosen"},
+    {label:"Capacity Pack + PAYG",...packHybrid,notes:"Full packs + PAYG leftover"},
+    {label:"Commit + PAYG",...commitHybrid,notes:"Commit tier + PAYG leftover"}
+  ];
+
+  const best=rows.reduce((a,b)=>a.annualCost<b.annualCost?a:b);
+
+  const tbody=document.getElementById("resultsBody");
+  tbody.innerHTML="";
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.label}${r.label===best.label?" <span class='best'>Best</span>":""}</td>
+      <td>${r.annualCredits.toLocaleString()}</td>
+      <td>$${r.annualCost.toFixed(2)}</td>
+      <td>${(r.annualCost/r.annualCredits).toFixed(4)}</td>
+      <td>${r.notes}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+computeAndRender();
+</script>
+</body>
+</html>
