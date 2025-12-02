@@ -24,13 +24,14 @@
 <main>
     <section class="card">
         <h2>Inputs</h2>
+        <h4>Months limited to per-month</h4>
         <label>Monthly usage (credits)</label>
         <input type="number" id="monthly" value="100000" min="1" step="1" />
         <br/>
         <label>Months</label>
-        <input type="number" id="months" value="12" min="1" max="12" />
+        <input type="number" id="months" value="1" min="1" max="1" />
         <br />
-        <button onclick="computeAndRender()">Optimize</button>
+        <button onclick="computeAndRender()">Compute</button>
     </section>
   <section class="card">
     <h2>Results</h2>
@@ -100,10 +101,11 @@ function computeAndRender(){
   const annualUsage=monthly*months;
 
   const payg=paygAnnualCost(annualUsage);
-  const pack=capacityPackAnnualCost(monthly,months);
-  const commit=commitHybridCost(annualUsage);
-  const packHybrid=capacityPackHybridCost(monthly,months);
-  const commitHybrid=commitHybridCost(annualUsage);
+  const pack = capacityPackAnnualCost(monthly, months);
+  const commit = commitHybridCost(annualUsage);  // issue with this calculation 12/02/2025 MM  not diving by month
+
+  const packHybrid = capacityPackHybridCost(monthly, months);
+  const commitHybrid = commitHybridCost(annualUsage);  // issue with this calculation 12/02/2025 MM
 
   const rows=[
     {label:"Pay-as-you-go",...payg,notes:"No commitments"},
